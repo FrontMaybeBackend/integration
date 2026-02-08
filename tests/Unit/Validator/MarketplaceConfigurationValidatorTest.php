@@ -11,10 +11,12 @@ use App\MarketplaceSourceProvider;
 use App\Request\BaseLinkerRequest;
 use App\Request\BaseLinkerRequestFactory;
 use App\Validator\MarketplaceConfigurationValidator;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
+#[AllowMockObjectsWithoutExpectations]
 class MarketplaceConfigurationValidatorTest extends TestCase
 {
     private MarketplaceSourceProvider $marketplaceProvider;

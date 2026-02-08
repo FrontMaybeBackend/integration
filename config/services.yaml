@@ -28,12 +28,22 @@ services:
         arguments:
             $apiUrl: '%baselinker_api_url%'
             $apiKey: '%baselinker_api_key%'
+            $logger: '@monolog.logger.baselinker'
     App\MarketplaceSourceProvider:
         arguments:
             $sources: '%baselinker_sources%'
     App\Performance\PerformanceLogger:
         arguments:
             $logger: '@monolog.logger.performance'
+    App\Validator\MarketPlaceConfigurationValidator:
+        arguments:
+            $logger: '@monolog.logger.baselinker'
+    App\Services\OrderFetchService:
+        arguments:
+            $logger: '@monolog.logger.baselinker'
+    App\Services\OrderSyncService:
+        arguments:
+            $logger: '@monolog.logger.baselinker'
 
 
     # add more service definitions when explicit configuration is needed

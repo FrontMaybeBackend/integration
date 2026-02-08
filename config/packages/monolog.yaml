@@ -2,6 +2,7 @@ monolog:
     channels:
         - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
         - performance
+        - baselinker
 
 when@dev:
     monolog:
@@ -10,16 +11,21 @@ when@dev:
                 type: stream
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
-                channels: ["!event", "!performance", "!baselinkerhandler"]
+                channels: ["!event", "!performance", "!baselinker"]
             console:
                 type: console
                 process_psr_3_messages: false
-                channels: ["!event", "!doctrine", "!console","!performance","!baselinkerhandler"]
+                channels: ["!event", "!doctrine", "!console","!performance","!baselinker"]
             performance:
                 type: stream
                 path: '%kernel.logs_dir%/performance.log'
                 level: info
                 channels: ["performance"]
+                formatter: monolog.formatter.json
+            baselinker:
+                type: stream
+                path: '%kernel.logs_dir%/baselinker.log'
+                channels: [ "baselinker"]
                 formatter: monolog.formatter.json
 
 

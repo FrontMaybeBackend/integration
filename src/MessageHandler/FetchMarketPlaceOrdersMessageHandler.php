@@ -4,22 +4,20 @@ declare(strict_types=1);
 
 namespace App\MessageHandler;
 
-use App\Client\BaseLinkerClient;
 use App\Enum\MarketPlaceEnum;
 use App\Message\FetchMarketPlaceOrdersMessage;
 use App\Performance\PerformanceLogger;
-use App\Request\BaseLinkerRequestFactory;
+use App\Services\OrderFetchService;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
-final class FetchMarketPlaceOrdersMessageHandler
+readonly class FetchMarketPlaceOrdersMessageHandler
 {
     public function __construct(
-        private readonly LoggerInterface $logger,
-        private readonly BaseLinkerRequestFactory $requestFactory,
-        private readonly BaseLinkerClient $client,
-        private readonly PerformanceLogger $performanceLogger,
+        private LoggerInterface $logger,
+        private OrderFetchService $orderFetchService,
+        private PerformanceLogger $performanceLogger,
     ) {
     }
 
@@ -31,65 +29,32 @@ final class FetchMarketPlaceOrdersMessageHandler
             'marketplace' => $marketplace->value,
         ]);
 
-        $this->performanceLogger->startMeasure('fetch_orders');
-        $orders = $this->fetchOrders($marketplace);
-        $this->performanceLogger->endMeasure('fetch_orders');
+        $result = $this->performanceLogger->measure(
+            'fetch_marketplace_data',
+            fn() => $this->fetchMarketplaceData($marketplace)
+        );
 
-        if (empty($orders)) {
+        if (empty($result['orders'])) {
             $this->logger->info('No orders to synchronize', [
                 'marketplace' => $marketplace->value,
             ]);
             return;
         }
 
-        $this->performanceLogger->startMeasure('fetch_statuses');
-        $statuses = $this->fetchOrderStatuses();
-        $this->performanceLogger->endMeasure('fetch_statuses');
+        $this->processOrders($result['orders'], $result['statuses'], $marketplace);
 
-        $this->processOrders($orders, $statuses, $marketplace);
-
-        $this->logger->info('Order synchronization completed successfully', [
+        $this->logger->info('Order synchronization completed', [
             'marketplace' => $marketplace->value,
-            'orders_processed' => count($orders),
+            'orders_processed' => count($result['orders']),
         ]);
     }
 
-
-
-    private function fetchOrders(MarketPlaceEnum $marketplace): array
+    private function fetchMarketplaceData(MarketPlaceEnum $marketplace): array
     {
-        $this->logger->debug('Fetching orders from BaseLinker', [
-            'marketplace' => $marketplace->value,
-        ]);
-
-        $request = $this->requestFactory->createGetOrdersRequest($marketplace);
-        $response = $this->client->request($request);
-
-        $orders = $response['orders'] ?? [];
-
-        $this->logger->debug('Orders fetched', [
-            'marketplace' => $marketplace->value,
-            'count' => count($orders),
-        ]);
-
-        return $orders;
-    }
-
-
-    private function fetchOrderStatuses(): array
-    {
-        $this->logger->debug('Fetching order statuses');
-
-        $request = $this->requestFactory->createGetOrderStatusListRequest();
-        $response = $this->client->request($request);
-
-        $statuses = $response['statuses'] ?? [];
-
-        $this->logger->debug('Order statuses fetched', [
-            'count' => count($statuses),
-        ]);
-
-        return $statuses;
+        return [
+            'orders' => $this->orderFetchService->fetchOrders($marketplace),
+            'statuses' => $this->orderFetchService->fetchOrderStatuses(),
+        ];
     }
 
     private function processOrders(array $orders, array $statuses, MarketPlaceEnum $marketplace): void

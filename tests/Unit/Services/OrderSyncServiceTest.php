@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Services;
 
-use App\Client\BaseLinkerClient;
 use App\Enum\MarketPlaceEnum;
 use App\Exception\MarketPlaceNotConfiguredException;
-use App\MarketplaceSourceProvider;
 use App\Message\FetchMarketPlaceOrdersMessage;
-use App\Request\BaseLinkerRequest;
-use App\Request\BaseLinkerRequestFactory;
 use App\Services\OrderSyncService;
+use App\Validator\MarketPlaceConfigurationValidator;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -23,136 +20,53 @@ use Symfony\Component\Messenger\MessageBusInterface;
 class OrderSyncServiceTest extends TestCase
 {
     private MessageBusInterface $messageBus;
-    private MarketplaceSourceProvider $marketplaceProvider;
-    private BaseLinkerClient $client;
-    private BaseLinkerRequestFactory $requestFactory;
+    private MarketPlaceConfigurationValidator $validator;
     private LoggerInterface $logger;
     private OrderSyncService $service;
 
     protected function setUp(): void
     {
         $this->messageBus = $this->createMock(MessageBusInterface::class);
-        $this->marketplaceProvider = $this->createMock(MarketplaceSourceProvider::class);
-        $this->client = $this->createMock(BaseLinkerClient::class);
-        $this->requestFactory = $this->createMock(BaseLinkerRequestFactory::class);
+        $this->validator = $this->createMock(MarketPlaceConfigurationValidator::class);
         $this->logger = $this->createMock(LoggerInterface::class);
 
         $this->service = new OrderSyncService(
             $this->messageBus,
-            $this->marketplaceProvider,
-            $this->client,
-            $this->requestFactory,
+            $this->validator,
             $this->logger
         );
     }
 
     #[Test]
-    public function validateAndDispatchSyncThrowsExceptionWhenNotConfiguredInSymfony(): void
+    public function validateAndDispatchSyncThrowsExceptionWhenValidationFails(): void
     {
         $this->expectException(MarketPlaceNotConfiguredException::class);
         $this->expectExceptionMessage('Marketplace ALLEGRO is not configured in Symfony services.');
 
-        $this->marketplaceProvider
+        $this->validator
             ->expects($this->once())
-            ->method('isConfigured')
+            ->method('validate')
             ->with(MarketPlaceEnum::ALLEGRO)
-            ->willReturn(false);
+            ->willThrowException(
+                new MarketPlaceNotConfiguredException(
+                    'Marketplace ALLEGRO is not configured in Symfony services.'
+                )
+            );
 
-        $this->marketplaceProvider
-            ->expects($this->once())
-            ->method('getSourceId')
-            ->with(MarketPlaceEnum::ALLEGRO)
-            ->willReturn(null);
-
-        $this->service->validateAndDispatchSync(MarketPlaceEnum::ALLEGRO);
-    }
-
-    #[Test]
-    public function validateAndDispatchSyncThrowsExceptionWhenNoSourcesInBaseLinker(): void
-    {
-        $this->expectException(MarketPlaceNotConfiguredException::class);
-        $this->expectExceptionMessage('No order sources configured in BaseLinker');
-
-        $this->marketplaceProvider
-            ->method('isConfigured')
-            ->willReturn(true);
-
-        $this->marketplaceProvider
-            ->method('getSourceId')
-            ->willReturn(12345);
-
-        $request = $this->createMock(BaseLinkerRequest::class);
-        $this->requestFactory
-            ->method('createGetOrderSourcesRequest')
-            ->willReturn($request);
-
-        $this->client
-            ->expects($this->once())
-            ->method('request')
-            ->with($request)
-            ->willReturn(['sources' => []]);
+        $this->messageBus
+            ->expects($this->never())
+            ->method('dispatch');
 
         $this->service->validateAndDispatchSync(MarketPlaceEnum::ALLEGRO);
     }
-    #[Test]
-    public function validateAndDispatchSyncThrowsExceptionWhenSourceNotInBaseLinker(): void
-    {
-        $this->expectException(MarketPlaceNotConfiguredException::class);
-        $this->expectExceptionMessage("Marketplace ALLEGRO is configured in Symfony, but it doesn't exist in BaseLinker.");
 
-        $this->marketplaceProvider
-            ->method('isConfigured')
-            ->willReturn(true);
-
-        $this->marketplaceProvider
-            ->method('getSourceId')
-            ->willReturn(99999);
-
-        $request = $this->createMock(BaseLinkerRequest::class);
-        $this->requestFactory
-            ->method('createGetOrderSourcesRequest')
-            ->willReturn($request);
-
-        $this->client
-            ->expects($this->once())
-            ->method('request')
-            ->willReturn([
-                'sources' => [
-                    'allegro' => [
-                        '12345' => 'Allegro PL',
-                        '67890' => 'Allegro CZ',
-                    ]
-                ]
-            ]);
-
-        $this->service->validateAndDispatchSync(MarketPlaceEnum::ALLEGRO);
-    }
     #[Test]
     public function validateAndDispatchSyncSuccessful(): void
     {
-        $this->marketplaceProvider
-            ->method('isConfigured')
-            ->willReturn(true);
-
-        $this->marketplaceProvider
-            ->method('getSourceId')
-            ->willReturn(12345);
-
-        $request = $this->createMock(BaseLinkerRequest::class);
-        $this->requestFactory
-            ->method('createGetOrderSourcesRequest')
-            ->willReturn($request);
-
-        $this->client
+        $this->validator
             ->expects($this->once())
-            ->method('request')
-            ->willReturn([
-                'sources' => [
-                    'allegro' => [
-                        '12345' => 'Allegro PL',
-                    ]
-                ]
-            ]);
+            ->method('validate')
+            ->with(MarketPlaceEnum::ALLEGRO);
 
         $this->messageBus
             ->expects($this->once())
@@ -164,23 +78,150 @@ class OrderSyncServiceTest extends TestCase
             ->willReturn(new Envelope(new \stdClass()));
 
         $this->logger
-            ->expects($this->atLeastOnce())
+            ->expects($this->exactly(2))
             ->method('info');
 
         $this->service->validateAndDispatchSync(MarketPlaceEnum::ALLEGRO);
     }
+
     #[Test]
-    public function syncOrder(): void
+    public function validateAndDispatchSyncLogsCorrectly(): void
     {
+        $this->validator
+            ->method('validate')
+            ->with(MarketPlaceEnum::AMAZON);
+
+        $this->messageBus
+            ->method('dispatch')
+            ->willReturn(new Envelope(new \stdClass()));
+
+        $loggedMessages = [];
+
+        $this->logger
+            ->expects($this->exactly(2))
+            ->method('info')
+            ->willReturnCallback(function ($message, $context) use (&$loggedMessages) {
+                $loggedMessages[] = [
+                    'message' => $message,
+                    'marketplace' => $context['marketplace'] ?? null,
+                ];
+            });
+
+        $this->service->validateAndDispatchSync(MarketPlaceEnum::AMAZON);
+
+        $this->assertSame('Starting marketplace sync validation', $loggedMessages[0]['message']);
+        $this->assertSame('AMAZON', $loggedMessages[0]['marketplace']);
+
+        $this->assertSame('Sync message dispatched successfully', $loggedMessages[1]['message']);
+        $this->assertSame('AMAZON', $loggedMessages[1]['marketplace']);
+    }
+
+    #[Test]
+    public function validateAndDispatchSyncDispatchesCorrectMessage(): void
+    {
+        $capturedMessage = null;
+
+        $this->validator
+            ->method('validate');
+
         $this->messageBus
             ->expects($this->once())
             ->method('dispatch')
-            ->with($this->callback(function ($message) {
-                return $message instanceof FetchMarketPlaceOrdersMessage
-                    && $message->getMarketPlace() === MarketPlaceEnum::AMAZON;
-            }))
+            ->willReturnCallback(function ($message) use (&$capturedMessage) {
+                $capturedMessage = $message;
+                return new Envelope($message);
+            });
+
+        $this->service->validateAndDispatchSync(MarketPlaceEnum::PERSONAL);
+
+        $this->assertInstanceOf(FetchMarketPlaceOrdersMessage::class, $capturedMessage);
+        $this->assertSame(MarketPlaceEnum::PERSONAL, $capturedMessage->getMarketPlace());
+    }
+
+    #[Test]
+    public function validateAndDispatchSyncHandlesAllMarketplaces(): void
+    {
+        $marketplaces = [
+            MarketPlaceEnum::ALLEGRO,
+            MarketPlaceEnum::AMAZON,
+            MarketPlaceEnum::PERSONAL,
+        ];
+
+        foreach ($marketplaces as $marketplace) {
+            $validator = $this->createMock(MarketplaceConfigurationValidator::class);
+            $validator
+                ->expects($this->once())
+                ->method('validate')
+                ->with($marketplace);
+
+            $messageBus = $this->createMock(MessageBusInterface::class);
+            $messageBus
+                ->expects($this->once())
+                ->method('dispatch')
+                ->with($this->callback(function ($message) use ($marketplace) {
+                    return $message instanceof FetchMarketPlaceOrdersMessage
+                        && $message->getMarketPlace() === $marketplace;
+                }))
+                ->willReturn(new Envelope(new \stdClass()));
+
+            $logger = $this->createMock(LoggerInterface::class);
+
+            $service = new OrderSyncService($messageBus, $validator, $logger);
+            $service->validateAndDispatchSync($marketplace);
+        }
+
+        $this->assertTrue(true);
+    }
+
+    #[Test]
+    public function validateAndDispatchSyncLogsStartValidation(): void
+    {
+        $this->validator
+            ->method('validate');
+
+        $this->messageBus
+            ->method('dispatch')
             ->willReturn(new Envelope(new \stdClass()));
 
-        $this->service->syncOrder(MarketPlaceEnum::AMAZON);
+        $loggedStartValidation = false;
+
+        $this->logger
+            ->expects($this->atLeastOnce())
+            ->method('info')
+            ->willReturnCallback(function ($message, $context) use (&$loggedStartValidation) {
+                if ($message === 'Starting marketplace sync validation' && $context['marketplace'] === 'ALLEGRO') {
+                    $loggedStartValidation = true;
+                }
+            });
+
+        $this->service->validateAndDispatchSync(MarketPlaceEnum::ALLEGRO);
+
+        $this->assertTrue($loggedStartValidation, 'Start validation message was not logged');
+    }
+
+    #[Test]
+    public function validateAndDispatchSyncLogsSuccessfulDispatch(): void
+    {
+        $this->validator
+            ->method('validate');
+
+        $this->messageBus
+            ->method('dispatch')
+            ->willReturn(new Envelope(new \stdClass()));
+
+        $loggedSuccessfulDispatch = false;
+
+        $this->logger
+            ->expects($this->atLeastOnce())
+            ->method('info')
+            ->willReturnCallback(function ($message, $context) use (&$loggedSuccessfulDispatch) {
+                if ($message === 'Sync message dispatched successfully' && $context['marketplace'] === 'AMAZON') {
+                    $loggedSuccessfulDispatch = true;
+                }
+            });
+
+        $this->service->validateAndDispatchSync(MarketPlaceEnum::AMAZON);
+
+        $this->assertTrue($loggedSuccessfulDispatch, 'Successful dispatch message was not logged');
     }
 }

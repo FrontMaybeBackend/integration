@@ -47,8 +47,9 @@ class FetchMarketPlaceOrdersMessageHandlerTest extends TestCase
             ->willReturn([]);
 
         $this->orderFetchService
-            ->expects($this->never())
-            ->method('fetchOrderStatuses');
+            ->expects($this->once())
+            ->method('fetchOrderStatuses')
+            ->willReturn([]);
 
         $this->performanceLogger
             ->expects($this->once())

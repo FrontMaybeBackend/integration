@@ -6,6 +6,6 @@ namespace App\Request;
 
 interface BaseLinkerRequestInterface
 {
-    public function getMethod() :string;
-    public function getParameters() :array;
+    public function getMethod(): string;
+    public function getParameters(): array;
 }

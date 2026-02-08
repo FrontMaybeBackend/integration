@@ -7,9 +7,15 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
-
+    baselinker_api_url: '%env(BASELINKER_API_URL)%'
+    baselinker_api_key: '%env(BASELINKER_API_KEY)%'
+    baselinker_sources:
+        allegro: '%env(BASELINKER_ALLEGRO_ID)%'
+        amazon:  '%env(BASELINKER_AMAZON_ID)%'
+        personal: '%env(BASELINKER_PERSONAL_ID)%'
 services:
     # default configuration for services in *this* file
+
     _defaults:
         autowire: true      # Automatically injects dependencies in your services.
         autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
@@ -18,6 +24,17 @@ services:
     # this creates a service per class whose id is the fully-qualified class name
     App\:
         resource: '../src/'
+    App\Client\BaseLinkerClient:
+        arguments:
+            $apiUrl: '%baselinker_api_url%'
+            $apiKey: '%baselinker_api_key%'
+    App\MarketplaceSourceProvider:
+        arguments:
+            $sources: '%baselinker_sources%'
+    App\Performance\PerformanceLogger:
+        arguments:
+            $logger: '@monolog.logger.performance'
+
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

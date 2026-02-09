@@ -17,18 +17,19 @@ Moduł integracyjny dla systemów helpdesk umożliwiający pobieranie zamówień
 
 ### 1. Klonowanie repozytorium
 ```bash
-git clone <repository-url>
-cd baselinker-integration
+git clone https://github.com/FrontMaybeBackend/integration.git
+cd integration
 ```
 
-### 2. Instalacja zależności
+### 2. Konfiguracja środowiska
 ```bash
-composer install
+cp .env.example .env.local
+cp .env.example .env
 ```
 
 ### 3. Konfiguracja środowiska
 ```bash
-cp .env.example .env.local
+composer install
 ```
 
 ---
@@ -54,7 +55,7 @@ Aby znaleźć właściwy `source_id` dla Twojego marketplace:
 2. Przejdź do: **INTEGRACJE**
 3. **Ustawienia integracji**
 3. Znajdź swój marketplace i skopiuj jego ID (widoczne w URL lub w szczegółach)
-4. Możesz również uruchomić komende ``` bash php bin/console app:baselinker-integration allegro``` wtedy w dev.log będą widoczne dostępne sources z base linker
+4. Możesz również uruchomić komende ``` php bin/console app:baselinker-integration allegro``` wtedy w dev.log będą widoczne dostępne sources z base linker
 ```json
 {"status":"SUCCESS","sources":{"personal":["Osobiście/tel."],"allegro":{"1":"Client"},"order_return":["Zwrot do zamówienia"]}} []
 ```

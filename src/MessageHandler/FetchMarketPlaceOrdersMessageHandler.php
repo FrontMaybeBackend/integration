@@ -15,7 +15,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 readonly class FetchMarketPlaceOrdersMessageHandler
 {
     public function __construct(
-        private LoggerInterface $logger,
+        private LoggerInterface $baselinkerLogger,
         private OrderFetchService $orderFetchService,
         private PerformanceLogger $performanceLogger,
     ) {
@@ -25,7 +25,7 @@ readonly class FetchMarketPlaceOrdersMessageHandler
     {
         $marketplace = $message->getMarketPlace();
 
-        $this->logger->info('Starting order synchronization', [
+        $this->baselinkerLogger->info('Starting order synchronization', [
             'marketplace' => $marketplace->value,
         ]);
 
@@ -35,7 +35,7 @@ readonly class FetchMarketPlaceOrdersMessageHandler
         );
 
         if (empty($result['orders'])) {
-            $this->logger->info('No orders to synchronize', [
+            $this->baselinkerLogger->info('No orders to synchronize', [
                 'marketplace' => $marketplace->value,
             ]);
             return;
@@ -43,7 +43,7 @@ readonly class FetchMarketPlaceOrdersMessageHandler
 
         $this->processOrders($result['orders'], $result['statuses'], $marketplace);
 
-        $this->logger->info('Order synchronization completed', [
+        $this->baselinkerLogger->info('Order synchronization completed', [
             'marketplace' => $marketplace->value,
             'orders_processed' => count($result['orders']),
         ]);
@@ -59,7 +59,7 @@ readonly class FetchMarketPlaceOrdersMessageHandler
 
     private function processOrders(array $orders, array $statuses, MarketPlaceEnum $marketplace): void
     {
-        $this->logger->info('Processing orders', [
+        $this->baselinkerLogger->info('Processing orders', [
             'marketplace' => $marketplace->value,
             'orders_count' => count($orders),
             'statuses_count' => count($statuses),

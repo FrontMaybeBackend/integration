@@ -28,7 +28,7 @@ composer install
 
 ### 3. Konfiguracja środowiska
 ```bash
-cp .env .env.local
+cp .env.example .env.local
 ```
 
 ---
@@ -54,7 +54,7 @@ Aby znaleźć właściwy `source_id` dla Twojego marketplace:
 2. Przejdź do: **INTEGRACJE**
 3. **Ustawienia integracji**
 3. Znajdź swój marketplace i skopiuj jego ID (widoczne w URL lub w szczegółach)
-4. Możesz uruchomić komende ``` bash php bin/console app:baselinker-integration allegro``` wtedy w dev.log będą widoczne dostępne sources z base linker
+4. Możesz również uruchomić komende ``` bash php bin/console app:baselinker-integration allegro``` wtedy w dev.log będą widoczne dostępne sources z base linker
 ```json
 {"status":"SUCCESS","sources":{"personal":["Osobiście/tel."],"allegro":{"1":"Client"},"order_return":["Zwrot do zamówienia"]}} []
 ```
@@ -107,8 +107,11 @@ src/
 │   ├── BaseLinkerRequestInterface.php
 │   └── BaseLinkerRequestFactory.php      # Factory Pattern
 ├── Services/
-│   ├── OrderSyncService.php              # Główny serwis synchronizacji
-│   └── OrderFetchService.php             # Serwis pobierania danych z API
+│   |    ├── OrderSyncService.php              # Główny serwis synchronizacji
+│   |    └── OrderFetchService.php             # Serwis pobierania danych z API
+|   |__ Paginator
+|         |
+|         |__ BaseLinkerOrderPaginator # Paginacja zamówień
 ├── Validator/
 │   └── MarketplaceConfigurationValidator.php # Walidacja konfiguracji
 └── MarketplaceSourceProvider.php         # Provider dla source_id
@@ -234,7 +237,7 @@ public function __construct(
 [FetchMarketPlaceOrdersMessageHandler]
     ├─→ [PerformanceLogger] - start measure
     ├─→ [OrderFetchService]
-    │    ├─→ fetchOrders() → [BaseLinkerClient]
+    │    ├─→ fetchOrders() → [BaseLinkerOrderPaginator] → [BaseLinkerClient]
     │    └─→ fetchOrderStatuses() → [BaseLinkerClient]
     ├─→ [PerformanceLogger] - end measure
     └─→ processOrders() -> aktualnie zwraca log z danymi, docelowo do helpdesk
@@ -260,6 +263,8 @@ tests/
 │   ├── Services/
 │   │   ├── OrderSyncServiceTest.php
 │   │   └── OrderFetchServiceTest.php
+|   |   |__ Paginator/
+|   |           |__ BaseLinkerOrderPaginatorTest.php 
 │   └── Validator/
 │       └── MarketplaceConfigurationValidatorTest.php
 └── Integration/
@@ -296,7 +301,7 @@ php bin/phpunit tests/Unit/Services/OrderSyncServiceTest.php
 ```
 var/log/
 ├── performance.log    # Metryki wydajności (JSON)
-├── baselinker.log     # Operacje API (JSON)
+├── baselinker.log     # Wszystko z baselinker
 └── dev.log           # Ogólny log deweloperski
 ```
 

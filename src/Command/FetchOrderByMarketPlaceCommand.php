@@ -22,7 +22,7 @@ final class FetchOrderByMarketPlaceCommand extends Command
 {
     public function __construct(
         private readonly OrderSyncService $orderSyncService,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $baselinkerLogger
     ) {
         parent::__construct();
     }
@@ -53,7 +53,7 @@ final class FetchOrderByMarketPlaceCommand extends Command
 
             return Command::SUCCESS;
         } catch (MarketPlaceNotConfiguredException $e) {
-            $this->logger->warning('Marketplace configuration validation failed', [
+            $this->baselinkerLogger->warning('Marketplace configuration validation failed', [
                 'marketplace' => $marketplace->value,
                 'reason' => $e->getMessage(),
             ]);

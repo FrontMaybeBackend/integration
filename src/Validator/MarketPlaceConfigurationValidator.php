@@ -17,7 +17,7 @@ readonly class MarketPlaceConfigurationValidator
         private MarketplaceSourceProvider $marketplaceProvider,
         private BaseLinkerClient $client,
         private BaseLinkerRequestFactory $requestFactory,
-        private LoggerInterface $logger
+        private LoggerInterface $baselinkerLogger
     ) {
     }
 
@@ -38,7 +38,7 @@ readonly class MarketPlaceConfigurationValidator
             );
         }
 
-        $this->logger->debug('Symfony configuration valid', [
+        $this->baselinkerLogger->debug('Symfony configuration valid', [
             'marketplace' => $marketplace->value,
         ]);
     }
@@ -72,7 +72,7 @@ readonly class MarketPlaceConfigurationValidator
             );
         }
 
-        $this->logger->debug('BaseLinker configuration valid', [
+        $this->baselinkerLogger->debug('BaseLinker configuration valid', [
             'marketplace' => $marketplace->value,
             'source_id' => $configuredSourceId,
         ]);

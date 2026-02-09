@@ -15,13 +15,13 @@ readonly class OrderSyncService
     public function __construct(
         private MessageBusInterface $messageBus,
         private MarketPlaceConfigurationValidator $validator,
-        private LoggerInterface $logger
+        private LoggerInterface $baselinkerLogger
     ) {
     }
 
     public function validateAndDispatchSync(MarketPlaceEnum $marketplace): void
     {
-        $this->logger->info('Starting marketplace sync validation', [
+        $this->baselinkerLogger->info('Starting marketplace sync validation', [
             'marketplace' => $marketplace->value,
         ]);
 
@@ -30,7 +30,7 @@ readonly class OrderSyncService
 
         $this->dispatchSync($marketplace);
 
-        $this->logger->info('Sync message dispatched successfully', [
+        $this->baselinkerLogger->info('Sync message dispatched successfully', [
             'marketplace' => $marketplace->value,
         ]);
     }

@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Client\BaseLinkerClient;
 use App\Enum\MarketPlaceEnum;
 use App\Request\BaseLinkerRequestFactory;
+use App\Services\Paginator\BaseLinkerOrderPaginator;
 use Psr\Log\LoggerInterface;
 
 readonly class OrderFetchService
@@ -14,24 +15,23 @@ readonly class OrderFetchService
     public function __construct(
         private BaseLinkerClient $client,
         private BaseLinkerRequestFactory $requestFactory,
-        private LoggerInterface $logger
+        private LoggerInterface $baselinkerLogger,
+        private BaseLinkerOrderPaginator $paginator,
     ) {
     }
 
-    public function fetchOrders(MarketPlaceEnum $marketplace): array
+    public function fetchOrders(MarketPlaceEnum $marketplace, ?int $dateFrom = null): array
     {
-        $this->logger->debug('Fetching orders from BaseLinker', [
+        $this->baselinkerLogger->info('Starting to fetch orders', [
             'marketplace' => $marketplace->value,
+            'date_from' => $dateFrom ?? time() - 86400,
         ]);
 
-        $request = $this->requestFactory->createGetOrdersRequest($marketplace);
-        $response = $this->client->request($request);
+        $orders = $this->paginator->fetchAll($marketplace, $dateFrom);
 
-        $orders = $response['orders'] ?? [];
-
-        $this->logger->debug('Orders fetched', [
+        $this->baselinkerLogger->info('Finished fetching orders', [
             'marketplace' => $marketplace->value,
-            'count' => count($orders),
+            'total_orders' => count($orders),
         ]);
 
         return $orders;
@@ -39,14 +39,14 @@ readonly class OrderFetchService
 
     public function fetchOrderStatuses(): array
     {
-        $this->logger->debug('Fetching order statuses');
+        $this->baselinkerLogger->debug('Fetching order statuses');
 
         $request = $this->requestFactory->createGetOrderStatusListRequest();
         $response = $this->client->request($request);
 
         $statuses = $response['statuses'] ?? [];
 
-        $this->logger->debug('Order statuses fetched', [
+        $this->baselinkerLogger->debug('Order statuses fetched', [
             'count' => count($statuses),
         ]);
 

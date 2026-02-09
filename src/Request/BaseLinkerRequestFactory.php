@@ -25,14 +25,19 @@ class BaseLinkerRequestFactory
 
     public function createGetOrdersRequest(
         MarketPlaceEnum $marketplace,
-        ?int $dateFrom = null
+        ?int $dateFrom = null,
+        ?int $idFrom = null
     ): BaseLinkerRequest {
+        $parameters = [
+            'order_source_id' => $this->marketplaceProvider->getSourceId($marketplace),
+            'date_confirmed_from' => $dateFrom ?? time() - 86400,
+        ];
+        if ($idFrom !== null) {
+            $parameters['id_from'] = $idFrom;
+        }
         return new BaseLinkerRequest(
             method: BaseLinkerMethodEnum::GET_ORDERS->value,
-            parameters: [
-                'order_source_id' => $this->marketplaceProvider->getSourceId($marketplace),
-                'date_confirmed_from' => $dateFrom ?? time() - 86400,
-            ]
+            parameters: $parameters
         );
     }
 

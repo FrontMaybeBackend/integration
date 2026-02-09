@@ -9,6 +9,7 @@ use App\Enum\MarketPlaceEnum;
 use App\Request\BaseLinkerRequest;
 use App\Request\BaseLinkerRequestFactory;
 use App\Services\OrderFetchService;
+use App\Services\Paginator\BaseLinkerOrderPaginator;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -21,59 +22,35 @@ class OrderFetchServiceTest extends TestCase
     private BaseLinkerRequestFactory $requestFactory;
     private LoggerInterface $logger;
     private OrderFetchService $service;
+    private BaseLinkerOrderPaginator $paginator;
 
     protected function setUp(): void
     {
         $this->client = $this->createMock(BaseLinkerClient::class);
         $this->requestFactory = $this->createMock(BaseLinkerRequestFactory::class);
         $this->logger = $this->createMock(LoggerInterface::class);
+        $this->paginator = $this->createMock(BaseLinkerOrderPaginator::class);
 
         $this->service = new OrderFetchService(
             $this->client,
             $this->requestFactory,
-            $this->logger
+            $this->logger,
+            $this->paginator
         );
     }
 
     #[Test]
     public function fetchOrdersReturnsEmptyArrayWhenNoOrders(): void
     {
-        $request = $this->createMock(BaseLinkerRequest::class);
-
-        $this->requestFactory
+        $this->paginator
             ->expects($this->once())
-            ->method('createGetOrdersRequest')
-            ->with(MarketPlaceEnum::ALLEGRO)
-            ->willReturn($request);
-
-        $this->client
-            ->expects($this->once())
-            ->method('request')
-            ->with($request)
-            ->willReturn(['orders' => []]);
+            ->method('fetchAll')
+            ->with(MarketPlaceEnum::ALLEGRO, null)
+            ->willReturn([]);
 
         $this->logger
             ->expects($this->exactly(2))
-            ->method('debug')
-            ->willReturnCallback(function (string $message, array $context) {
-                static $call = 0;
-
-                if ($call === 0) {
-                    $this->assertSame('Fetching orders from BaseLinker', $message);
-                    $this->assertSame(['marketplace' => 'ALLEGRO'], $context);
-                }
-
-                if ($call === 1) {
-                    $this->assertSame('Orders fetched', $message);
-                    $this->assertSame([
-                        'marketplace' => 'ALLEGRO',
-                        'count' => 0,
-                    ], $context);
-                }
-
-                $call++;
-            });
-
+            ->method('info');
 
         $result = $this->service->fetchOrders(MarketPlaceEnum::ALLEGRO);
 
@@ -89,17 +66,11 @@ class OrderFetchServiceTest extends TestCase
             ['order_id' => 456, 'total' => 200.75],
         ];
 
-        $request = $this->createMock(BaseLinkerRequest::class);
-
-        $this->requestFactory
-            ->method('createGetOrdersRequest')
-            ->with(MarketPlaceEnum::AMAZON)
-            ->willReturn($request);
-
-        $this->client
-            ->method('request')
-            ->with($request)
-            ->willReturn(['orders' => $orders]);
+        $this->paginator
+            ->expects($this->once())
+            ->method('fetchAll')
+            ->with(MarketPlaceEnum::AMAZON, null)
+            ->willReturn($orders);
 
         $result = $this->service->fetchOrders(MarketPlaceEnum::AMAZON);
 
@@ -110,21 +81,33 @@ class OrderFetchServiceTest extends TestCase
     #[Test]
     public function fetchOrdersLogsDebugInformation(): void
     {
-        $request = $this->createMock(BaseLinkerRequest::class);
+        $orders = [['order_id' => 1]];
 
-        $this->requestFactory
-            ->method('createGetOrdersRequest')
-            ->willReturn($request);
+        $this->paginator
+            ->method('fetchAll')
+            ->willReturn($orders);
 
-        $this->client
-            ->method('request')
-            ->willReturn(['orders' => [['order_id' => 1]]]);
+        $loggedMessages = [];
 
         $this->logger
             ->expects($this->exactly(2))
-            ->method('debug');
+            ->method('info')
+            ->willReturnCallback(function ($message, $context) use (&$loggedMessages) {
+                $loggedMessages[] = [
+                    'message' => $message,
+                    'marketplace' => $context['marketplace'] ?? null,
+                    'total_orders' => $context['total_orders'] ?? null,
+                ];
+            });
 
-        $this->service->fetchOrders(MarketPlaceEnum::PERSONAL);
+        $this->service->fetchOrders(MarketPlaceEnum::ALLEGRO);
+
+        $this->assertSame('Starting to fetch orders', $loggedMessages[0]['message']);
+        $this->assertSame('ALLEGRO', $loggedMessages[0]['marketplace']);
+
+        $this->assertSame('Finished fetching orders', $loggedMessages[1]['message']);
+        $this->assertSame('ALLEGRO', $loggedMessages[1]['marketplace']);
+        $this->assertSame(1, $loggedMessages[1]['total_orders']);
     }
 
     #[Test]
@@ -250,5 +233,20 @@ class OrderFetchServiceTest extends TestCase
 
         $this->assertIsArray($result);
         $this->assertEmpty($result);
+    }
+
+    #[Test]
+    public function fetchOrdersDelegatesPaginationToPaginator(): void
+    {
+        $orders = array_fill(0, 250, ['order_id' => 1]);
+
+        $this->paginator
+            ->expects($this->once())
+            ->method('fetchAll')
+            ->willReturn($orders);
+
+        $result = $this->service->fetchOrders(MarketPlaceEnum::AMAZON);
+
+        $this->assertCount(250, $result);
     }
 }

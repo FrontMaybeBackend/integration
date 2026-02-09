@@ -9,4 +9,6 @@ enum MarketPlaceEnum : string
     case ALLEGRO = 'ALLEGRO';
     case AMAZON = 'AMAZON';
     case PERSONAL = 'PERSONAL';
+
+    case EBAY = 'EBAY';
 }

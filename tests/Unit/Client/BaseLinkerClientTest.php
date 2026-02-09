@@ -8,27 +8,29 @@ use App\Client\BaseLinkerClient;
 use App\Request\BaseLinkerRequestInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
 #[AllowMockObjectsWithoutExpectations]
-class BaseLinkerClientTest extends TestCase
+class BaseLinkerClientTest extends KernelTestCase
 {
     private LoggerInterface $logger;
     private HttpClientInterface $httpClient;
     private BaseLinkerClient $client;
-    private string $apiKey = 'test-api-key';
-    private string $apiUrl = 'https://api.baselinker.com/connector.php';
+    private string $apiKey;
+    private string $apiUrl;
 
     protected function setUp(): void
     {
+        $container = self::getContainer();
         $this->logger = $this->createMock(LoggerInterface::class);
         $this->httpClient = $this->createMock(HttpClientInterface::class);
-
+        $this->apiKey = $container->getParameter('baselinker_api_key');
+        $this->apiUrl = $container->getParameter('baselinker_api_url');
         $this->client = new BaseLinkerClient(
             $this->logger,
             $this->httpClient,
@@ -36,6 +38,7 @@ class BaseLinkerClientTest extends TestCase
             $this->apiUrl
         );
     }
+
     #[Test]
     public function requestSuccessful(): void
     {
@@ -76,6 +79,7 @@ class BaseLinkerClientTest extends TestCase
 
         $this->assertEquals($responseData, $result);
     }
+
     #[Test]
     public function requestWithErrorStatus(): void
     {
@@ -104,6 +108,7 @@ class BaseLinkerClientTest extends TestCase
 
         $this->client->request($request);
     }
+
     #[Test]
     public function requestWithHttpException(): void
     {
@@ -126,6 +131,7 @@ class BaseLinkerClientTest extends TestCase
 
         $this->client->request($request);
     }
+
     #[Test]
     public function requestWithTransportException(): void
     {

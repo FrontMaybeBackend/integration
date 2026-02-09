@@ -13,7 +13,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 readonly class BaseLinkerClient implements BaseLinkerClientInterface
 {
     public function __construct(
-        private LoggerInterface $logger,
+        private LoggerInterface $baselinkerLogger,
         private HttpClientInterface $client,
         private string $apiKey,
         private string $apiUrl
@@ -22,7 +22,7 @@ readonly class BaseLinkerClient implements BaseLinkerClientInterface
 
     public function request(BaseLinkerRequestInterface $request): array
     {
-        $this->logger->info('BaseLinker API call', [
+        $this->baselinkerLogger->info('BaseLinker API call', [
             'method' => $request->getMethod(),
             'parameters' => $request->getParameters(),
         ]);
@@ -41,14 +41,14 @@ readonly class BaseLinkerClient implements BaseLinkerClientInterface
 
             $data = $response->toArray();
         } catch (HttpExceptionInterface $e) {
-            $this->logger->error('BaseLinker API HTTP error', [
+            $this->baselinkerLogger->error('BaseLinker API HTTP error', [
                 'method' => $request->getMethod(),
                 'parameters' => $request->getParameters(),
                 'error' => $e->getMessage(),
             ]);
             throw $e;
         } catch (TransportExceptionInterface $e) {
-            $this->logger->error('BaseLinker API transport error', [
+            $this->baselinkerLogger->error('BaseLinker API transport error', [
                 'method' => $request->getMethod(),
                 'parameters' => $request->getParameters(),
                 'error' => $e->getMessage(),
@@ -56,10 +56,10 @@ readonly class BaseLinkerClient implements BaseLinkerClientInterface
             throw $e;
         }
 
-        $this->logger->debug('BaseLinker API response', $data);
+        $this->baselinkerLogger->debug('BaseLinker API response', $data);
 
         if (($data['status'] ?? null) === "ERROR") {
-            $this->logger->error('BaseLinker API returned ERROR', $data);
+            $this->baselinkerLogger->error('BaseLinker API returned ERROR', $data);
             throw new \RuntimeException("Invalid configuration for BaseLinker API");
         }
 
